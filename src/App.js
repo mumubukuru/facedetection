@@ -1,8 +1,9 @@
 import React, { Component } from 'react';
 import Particles from 'react-particles-js';
 import Clarifai from 'clarifai';
-// import ReactDOM from 'react-dom';
+import FaceRecognition from './Components/FaceRecognition/FaceRecognition'
 import Navigation from './Components/Navigation/Navigation';
+import Signin from './Components/Signin/Signin'
 // import Logo from './Components/Logo/Logo.js';
 import ImageLinkForm from './Components/ImageLinkForm/ImageLinkForm';
 import Rank from './Components/Rank/Rank';
@@ -30,23 +31,46 @@ class App extends Component {
     super();
     this.state = {
       input: '',
+      imageUrl: '',
+      box: {},
+      route: 'signin'
     }
+  }
+
+  calculateFaceLocation = (data) => {
+    const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
+    const image = document.getElementById('inputimage');
+    const width = Number(image.width);
+    const height = Number(image.heigth);
+    return {
+      leftCol: clarifaiFace.left_col * width,
+      topRow: clarifaiFace.top_row * height,
+      rightCol: width - (clarifaiFace.right_col * width),
+      bottomRow: height - (clarifaiFace.bottom_row * height)
+    }
+  }
+
+  displayFaceBox = (box) => {
+    console.log(box);
+    this.setState({box: box});
   }
   
   onInputChange = (event) => {
-    console.log(event.target.value); // Get input from value
+    this.setState({input: event.target.value}); // Get input from value
   }
 
   onSubmit = () => {
-    console.log('click');
-    app.models.predict("a439491bd9b84c1eb3667aa6290b6edc", "https://samples.clarifai.com/face-det.jpg").then(
-      function(response) {
-        console.log(response);
-      },
-      function(err) {
+    this.setState({imageUrl: this.state.input});
+    app.models
+    .predict(
+      Clarifai.FACE_DETECT_MODEL, 
+      this.state.input)
+      .then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+      .catch(err => console.log(err));
+  }
 
-      }
-    )
+  onRouteChange = (route) => {
+    this.setState({route: route})
   }
 
   render() {
@@ -55,14 +79,18 @@ class App extends Component {
         <Particles className='particles'
               params={{particlesOptions}}
             />
-        <Navigation />
-        <Rank />
-        <ImageLinkForm 
-        onInputChange={this.onInputChange} 
-        onButtonSubmit={this.onSubmit}
-        />
-        {/* <Logo /> */}
-        {/* <FaceRecog /> */}
+        <Navigation onRouteChange={this.onRouteChange}/>
+        { this.state.route === 'signin' ?
+          <Signin onRouteChange={this.onRouteChange} />
+          : <div>
+              <Rank />
+              <ImageLinkForm 
+              onInputChange={this.onInputChange} 
+              onButtonSubmit={this.onSubmit}
+              />
+              <FaceRecognition box={this.state.box} imageUrl={this.state.imageUrl}/>
+            </div>
+    }
       </div>
     );
 }
